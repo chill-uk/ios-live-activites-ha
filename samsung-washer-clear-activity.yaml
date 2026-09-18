@@ -1,0 +1,14 @@
+alias: Washer - Clear iPhone Live Activity
+description: Clears the washer Live Activity 15 minutes after completion
+triggers:
+  - trigger: state
+    entity_id: sensor.samsung_washer_da_wm_tp2_20_common_progress_2
+    to: finish
+actions:
+  - delay: '00:15:00'
+  - action: notify.mobile_app_phone
+    data:
+      message: clear_notification
+      data:
+        tag: washer_cycle
+mode: restart
