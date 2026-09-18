@@ -1,0 +1,193 @@
+alias: Dryer - iPhone Live Activity
+description: Shows Samsung dryer progress as an iOS Live Activity. Uses https://github.com/mbillow/localthings as the integration.
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.samsung_dryer_da_wm_tp1_21_common_running
+    to: 'on'
+    id: started
+  - trigger: state
+    entity_id: sensor.samsung_dryer_da_wm_tp1_21_common_progress
+    id: stage
+  - trigger: state
+    entity_id: sensor.samsung_dryer_da_wm_tp1_21_common_progress_percent
+    id: percentage
+  - trigger: state
+    entity_id: sensor.samsung_dryer_da_wm_tp1_21_common_estimated_finish
+    id: estimated_finish
+actions:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: |
+              {{ states(
+                'sensor.samsung_dryer_da_wm_tp1_21_common_progress'
+              ) == 'finish' }}
+        sequence:
+          - action: notify.mobile_app_iphone
+            data:
+              title: Dryer · Finished
+              message: ''
+              data:
+                tag: dryer_cycle
+                live_update: true
+                progress: 100
+                progress_max: 100
+                critical_text: Done
+                notification_icon: mdi:tumble-dryer
+                notification_icon_color: '#4CAF50'
+                progress_bar_color: '#4CAF50'
+                url: /lovelace/0
+      - conditions:
+          - condition: trigger
+            id:
+              - started
+              - stage
+          - condition: state
+            entity_id: binary_sensor.samsung_dryer_da_wm_tp1_21_common_running
+            state: 'on'
+          - condition: template
+            value_template: |
+              {{ states(
+                'sensor.samsung_dryer_da_wm_tp1_21_common_progress'
+              ) != 'finish' }}
+        sequence:
+          - action: notify.mobile_app_iphone
+            data:
+              title: |-
+                {% set stage =
+                  states(
+                    'sensor.samsung_dryer_da_wm_tp1_21_common_progress'
+                  )
+                %}
+                {% set names = {
+                  'weightsensing': 'Sensing load',
+                  'aidrying': 'AI drying',
+                  'drying': 'Drying',
+                  'cooling': 'Cooling',
+                  'airwashing': 'Air washing',
+                  'dryingwithdooropen': 'Door open',
+                  'finish': 'Finished',
+                  'idle': 'Idle'
+                } %}
+                Dryer · {{ names.get(
+                  stage,
+                  stage | replace('_', ' ') | title
+                ) }}
+              message: ''
+              data:
+                tag: dryer_cycle
+                live_update: true
+                progress: |
+                  {{ states(
+                    'sensor.samsung_dryer_da_wm_tp1_21_common_progress_percent'
+                  ) | int(0) }}
+                progress_max: 100
+                chronometer: true
+                when: |-
+                  {% set finish =
+                    states(
+                      'sensor.samsung_dryer_da_wm_tp1_21_common_estimated_finish'
+                    )
+                  %}
+                  {% if finish not in
+                    ['unknown', 'unavailable', 'none', 'None', ''] %}
+                    {{ [
+                      as_timestamp(finish) - as_timestamp(now()),
+                      0
+                    ] | max | int }}
+                  {% else %}
+                    {{ states(
+                      'sensor.samsung_dryer_da_wm_tp1_21_common_completion_time'
+                    ) | int(0) * 60 }}
+                  {% endif %}
+                when_relative: true
+                notification_icon: mdi:tumble-dryer
+                notification_icon_color: '#2196F3'
+                progress_bar_color: '#2196F3'
+                progress_bar_direction: increasing
+                url: /lovelace/0
+      - conditions:
+          - condition: trigger
+            id:
+              - percentage
+              - estimated_finish
+          - condition: state
+            entity_id: binary_sensor.samsung_dryer_da_wm_tp1_21_common_running
+            state: 'on'
+          - condition: template
+            value_template: |
+              {{ states(
+                'sensor.samsung_dryer_da_wm_tp1_21_common_progress'
+              ) != 'finish' }}
+          - condition: template
+            value_template: |-
+              {% if trigger.id == 'percentage' %}
+                {% set current =
+                  states(
+                    'sensor.samsung_dryer_da_wm_tp1_21_common_progress_percent'
+                  ) | int(-1)
+                %}
+                {{ current >= 0
+                   and current < 100
+                   and current % 5 == 0 }}
+              {% else %}
+                true
+              {% endif %}
+        sequence:
+          - action: notify.mobile_app_iphone
+            data:
+              title: |-
+                {% set stage =
+                  states(
+                    'sensor.samsung_dryer_da_wm_tp1_21_common_progress'
+                  )
+                %}
+                {% set names = {
+                  'weightsensing': 'Sensing load',
+                  'aidrying': 'AI drying',
+                  'drying': 'Drying',
+                  'cooling': 'Cooling',
+                  'airwashing': 'Air washing',
+                  'dryingwithdooropen': 'Door open',
+                  'finish': 'Finished',
+                  'idle': 'Idle'
+                } %}
+                Dryer · {{ names.get(
+                  stage,
+                  stage | replace('_', ' ') | title
+                ) }}
+              message: ''
+              data:
+                tag: dryer_cycle
+                live_update: true
+                silent: true
+                progress: |
+                  {{ states(
+                    'sensor.samsung_dryer_da_wm_tp1_21_common_progress_percent'
+                  ) | int(0) }}
+                progress_max: 100
+                chronometer: true
+                when: |-
+                  {% set finish =
+                    states(
+                      'sensor.samsung_dryer_da_wm_tp1_21_common_estimated_finish'
+                    )
+                  %}
+                  {% if finish not in
+                    ['unknown', 'unavailable', 'none', 'None', ''] %}
+                    {{ [
+                      as_timestamp(finish) - as_timestamp(now()),
+                      0
+                    ] | max | int }}
+                  {% else %}
+                    {{ states(
+                      'sensor.samsung_dryer_da_wm_tp1_21_common_completion_time'
+                    ) | int(0) * 60 }}
+                  {% endif %}
+                when_relative: true
+                notification_icon: mdi:tumble-dryer
+                notification_icon_color: '#2196F3'
+                progress_bar_color: '#2196F3'
+                progress_bar_direction: increasing
+                url: /lovelace/0
+mode: restart
