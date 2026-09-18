@@ -6,7 +6,7 @@ triggers:
     to: finish
 actions:
   - delay: '00:15:00'
-  - action: notify.mobile_app_phone
+  - action: notify.mobile_app_iphone
     data:
       message: clear_notification
       data:
