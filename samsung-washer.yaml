@@ -1,5 +1,5 @@
 alias: Washer - iPhone Live Activity
-description: Shows Samsung washer progress as an iOS Live Activity
+description: Shows Samsung washer progress as an iOS Live Activity. Uses https://github.com/mbillow/localthings as the integration.
 triggers:
   - trigger: state
     entity_id: binary_sensor.samsung_washer_da_wm_tp2_20_common_running_2
