@@ -11,9 +11,6 @@ triggers:
   - trigger: state
     entity_id: sensor.samsung_washer_da_wm_tp2_20_common_progress_percent_2
     id: percentage
-  - trigger: state
-    entity_id: sensor.samsung_washer_da_wm_tp2_20_common_estimated_finish_2
-    id: estimated_finish
 actions:
   - choose:
       - conditions:
@@ -37,6 +34,18 @@ actions:
                 notification_icon_color: '#4CAF50'
                 progress_bar_color: '#4CAF50'
                 url: /lovelace/0
+          - delay: '00:15:00'
+          - condition: state
+            entity_id: sensor.samsung_washer_da_wm_tp2_20_common_progress_2
+            state: finish
+          - condition: state
+            entity_id: binary_sensor.samsung_washer_da_wm_tp2_20_common_running_2
+            state: 'off'
+          - action: notify.mobile_app_iphone
+            data:
+              message: clear_notification
+              data:
+                tag: washer_cycle
       - conditions:
           - condition: trigger
             id:
@@ -112,9 +121,7 @@ actions:
                 url: /lovelace/0
       - conditions:
           - condition: trigger
-            id:
-              - percentage
-              - estimated_finish
+            id: percentage
           - condition: state
             entity_id: binary_sensor.samsung_washer_da_wm_tp2_20_common_running_2
             state: 'on'
@@ -127,18 +134,14 @@ actions:
               %} {{ stage not in ['finish', 'delayedwash'] }}
           - condition: template
             value_template: |-
-              {% if trigger.id == 'percentage' %}
-                {% set current =
-                  states(
-                    'sensor.samsung_washer_da_wm_tp2_20_common_progress_percent_2'
-                  ) | int(-1)
-                %}
-                {{ current >= 0
-                   and current < 100
-                   and current % 5 == 0 }}
-              {% else %}
-                true
-              {% endif %}
+              {% set current =
+                states(
+                  'sensor.samsung_washer_da_wm_tp2_20_common_progress_percent_2'
+                ) | int(-1)
+              %}
+              {{ current >= 0
+                 and current < 100
+                 and current % 5 == 0 }}
         sequence:
           - action: notify.mobile_app_iphone
             data:
