@@ -1,24 +1,37 @@
 alias: Washer - iPhone Live Activity
-description: Shows Samsung washer progress as an iOS Live Activity. Uses https://github.com/mbillow/localthings as the integration.
+description: >
+  Shows Samsung washer progress as an iOS Live Activity.
+  Uses https://github.com/mbillow/localthings as the integration.
+
 triggers:
+  # Start a new Live Activity when the washer begins running.
   - trigger: state
     entity_id: binary_sensor.samsung_washer_da_wm_tp2_20_common_running_2
     to: 'on'
     id: started
+
+  # Update when the washer changes stage/status.
   - trigger: state
     entity_id: sensor.samsung_washer_da_wm_tp2_20_common_progress_2
     id: stage
+
+  # Update progress only at 5% boundaries.
   - trigger: state
     entity_id: sensor.samsung_washer_da_wm_tp2_20_common_progress_percent_2
     id: percentage
+
 actions:
   - choose:
+
+      # -----------------------------------------------------------------------
+      # FINISHED
+      # Show 100% / Done, keep it visible for 15 minutes, then clear it.
+      # -----------------------------------------------------------------------
       - conditions:
           - condition: template
-            value_template: |
-              {{ states(
-                'sensor.samsung_washer_da_wm_tp2_20_common_progress_2'
-              ) == 'finish' }}
+            value_template: >
+              {{ states('sensor.samsung_washer_da_wm_tp2_20_common_progress_2') == 'finish' }}
+
         sequence:
           - action: notify.mobile_app_iphone
             data:
@@ -34,42 +47,50 @@ actions:
                 notification_icon_color: '#4CAF50'
                 progress_bar_color: '#4CAF50'
                 url: /lovelace/0
+
           - delay: '00:15:00'
+
+          # Only clear if this is still the completed cycle.
           - condition: state
             entity_id: sensor.samsung_washer_da_wm_tp2_20_common_progress_2
             state: finish
+
           - condition: state
             entity_id: binary_sensor.samsung_washer_da_wm_tp2_20_common_running_2
             state: 'off'
+
           - action: notify.mobile_app_iphone
             data:
               message: clear_notification
               data:
                 tag: washer_cycle
+
+      # -----------------------------------------------------------------------
+      # STARTED / STAGE CHANGED
+      # Delayed Wash is intentionally excluded.
+      # -----------------------------------------------------------------------
       - conditions:
           - condition: trigger
             id:
               - started
               - stage
+
           - condition: state
             entity_id: binary_sensor.samsung_washer_da_wm_tp2_20_common_running_2
             state: 'on'
+
           - condition: template
-            value_template: |
-              {% set stage =
-                states(
-                  'sensor.samsung_washer_da_wm_tp2_20_common_progress_2'
-                ) | lower
-              %} {{ stage not in ['finish', 'delayedwash'] }}
+            value_template: |-
+              {% set stage = states(
+                'sensor.samsung_washer_da_wm_tp2_20_common_progress_2'
+              ) | lower %}
+              {{ stage not in ['finish', 'delayedwash'] }}
+
         sequence:
           - action: notify.mobile_app_iphone
             data:
               title: |-
-                {% set stage =
-                  states(
-                    'sensor.samsung_washer_da_wm_tp2_20_common_progress_2'
-                  )
-                %}
+                {% set stage = states('sensor.samsung_washer_da_wm_tp2_20_common_progress_2') %}
                 {% set names = {
                   'weightsensing': 'Sensing',
                   'wash': 'Washing',
@@ -82,75 +103,65 @@ actions:
                   'finish': 'Finished',
                   'idle': 'Idle'
                 } %}
-                Washer · {{ names.get(
-                  stage,
-                  stage | replace('_', ' ') | title
-                ) }}
+                Washer · {{ names.get(stage, stage | replace('_', ' ') | title) }}
+
               message: ''
+
               data:
                 tag: washer_cycle
                 live_update: true
-                progress: |
-                  {{ states(
-                    'sensor.samsung_washer_da_wm_tp2_20_common_progress_percent_2'
-                  ) | int(0) }}
+
+                progress: >
+                  {{ states('sensor.samsung_washer_da_wm_tp2_20_common_progress_percent_2') | int(0) }}
                 progress_max: 100
+
                 chronometer: true
                 when: |-
-                  {% set finish =
-                    states(
-                      'sensor.samsung_washer_da_wm_tp2_20_common_estimated_finish_2'
-                    )
-                  %}
-                  {% if finish not in
-                    ['unknown', 'unavailable', 'none', 'None', ''] %}
-                    {{ [
-                      as_timestamp(finish) - as_timestamp(now()),
-                      0
-                    ] | max | int }}
+                  {% set finish = states('sensor.samsung_washer_da_wm_tp2_20_common_estimated_finish_2') %}
+                  {% if finish not in ['unknown', 'unavailable', 'none', 'None', ''] %}
+                    {{ [as_timestamp(finish) - as_timestamp(now()), 0] | max | int }}
                   {% else %}
-                    {{ states(
-                      'sensor.samsung_washer_da_wm_tp2_20_common_completion_time_2'
-                    ) | int(0) * 60 }}
+                    {{ states('sensor.samsung_washer_da_wm_tp2_20_common_completion_time_2') | int(0) * 60 }}
                   {% endif %}
                 when_relative: true
+
                 notification_icon: mdi:washing-machine
                 notification_icon_color: '#2196F3'
                 progress_bar_color: '#2196F3'
                 progress_bar_direction: increasing
                 url: /lovelace/0
+
+      # -----------------------------------------------------------------------
+      # PROGRESS CHANGED
+      # Only send a silent update when progress reaches a 5% boundary.
+      # -----------------------------------------------------------------------
       - conditions:
           - condition: trigger
             id: percentage
+
           - condition: state
             entity_id: binary_sensor.samsung_washer_da_wm_tp2_20_common_running_2
             state: 'on'
-          - condition: template
-            value_template: |
-              {% set stage =
-                states(
-                  'sensor.samsung_washer_da_wm_tp2_20_common_progress_2'
-                ) | lower
-              %} {{ stage not in ['finish', 'delayedwash'] }}
+
           - condition: template
             value_template: |-
-              {% set current =
-                states(
-                  'sensor.samsung_washer_da_wm_tp2_20_common_progress_percent_2'
-                ) | int(-1)
-              %}
-              {{ current >= 0
-                 and current < 100
-                 and current % 5 == 0 }}
+              {% set stage = states(
+                'sensor.samsung_washer_da_wm_tp2_20_common_progress_2'
+              ) | lower %}
+              {{ stage not in ['finish', 'delayedwash'] }}
+
+          - condition: template
+            value_template: |-
+              {% set current = states(
+                'sensor.samsung_washer_da_wm_tp2_20_common_progress_percent_2'
+              ) | int(-1) %}
+              {{ current >= 0 and current < 100 and current % 5 == 0 }}
+
         sequence:
           - action: notify.mobile_app_iphone
             data:
               title: |-
-                {% set stage =
-                  states(
-                    'sensor.samsung_washer_da_wm_tp2_20_common_progress_2'
-                  )
-                %}
+                {% set stage = states('sensor.samsung_washer_da_wm_tp2_20_common_progress_2') %}
                 {% set names = {
                   'weightsensing': 'Sensing',
                   'wash': 'Washing',
@@ -163,42 +174,33 @@ actions:
                   'finish': 'Finished',
                   'idle': 'Idle'
                 } %}
-                Washer · {{ names.get(
-                  stage,
-                  stage | replace('_', ' ') | title
-                ) }}
+                Washer · {{ names.get(stage, stage | replace('_', ' ') | title) }}
+
               message: ''
+
               data:
                 tag: washer_cycle
                 live_update: true
                 silent: true
-                progress: |
-                  {{ states(
-                    'sensor.samsung_washer_da_wm_tp2_20_common_progress_percent_2'
-                  ) | int(0) }}
+
+                progress: >
+                  {{ states('sensor.samsung_washer_da_wm_tp2_20_common_progress_percent_2') | int(0) }}
                 progress_max: 100
+
                 chronometer: true
                 when: |-
-                  {% set finish =
-                    states(
-                      'sensor.samsung_washer_da_wm_tp2_20_common_estimated_finish_2'
-                    )
-                  %}
-                  {% if finish not in
-                    ['unknown', 'unavailable', 'none', 'None', ''] %}
-                    {{ [
-                      as_timestamp(finish) - as_timestamp(now()),
-                      0
-                    ] | max | int }}
+                  {% set finish = states('sensor.samsung_washer_da_wm_tp2_20_common_estimated_finish_2') %}
+                  {% if finish not in ['unknown', 'unavailable', 'none', 'None', ''] %}
+                    {{ [as_timestamp(finish) - as_timestamp(now()), 0] | max | int }}
                   {% else %}
-                    {{ states(
-                      'sensor.samsung_washer_da_wm_tp2_20_common_completion_time_2'
-                    ) | int(0) * 60 }}
+                    {{ states('sensor.samsung_washer_da_wm_tp2_20_common_completion_time_2') | int(0) * 60 }}
                   {% endif %}
                 when_relative: true
+
                 notification_icon: mdi:washing-machine
                 notification_icon_color: '#2196F3'
                 progress_bar_color: '#2196F3'
                 progress_bar_direction: increasing
                 url: /lovelace/0
+
 mode: restart
